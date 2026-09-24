@@ -113,6 +113,17 @@ plausible-sounding advice.
 because the agents follow whatever it says. The selftest keeps warning until you remove the marker
 line at the top, which is your cue that this step is still outstanding.
 
+### Updating
+
+Updates are not automatic. To get the latest version, run this from your project's root:
+
+```bash
+npx github:HeisenbergI8/provenly init --upgrade
+```
+
+This replaces the harness scripts in `.claude/harness/` and leaves your config, `settings.json`,
+agents, skills and `CONVENTIONS.md` alone. **Restart Claude Code afterwards.**
+
 ### What it looks like when it is working
 
 Nothing changes until a claim outruns the evidence. When one does, the turn stops:
