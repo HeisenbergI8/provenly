@@ -3,7 +3,7 @@
 // nothing — because the damage is silent and only shows up the next time a guard fails to fire.
 
 import { strict as assert } from 'node:assert'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { after, test } from 'node:test'
 import { join } from 'node:path'
@@ -170,7 +170,8 @@ test('every shipped agent and skill has the frontmatter that makes it loadable',
     ['skills/lessons-review', 'SKILL.md'],
     ['skills/build', 'SKILL.md'],
     ['skills/git-committer', 'SKILL.md'],
-    ['skills/ticket-writer', 'SKILL.md']
+    ['skills/ticket-writer', 'SKILL.md'],
+    ['skills/ui-ux-design', 'SKILL.md']
   ]) {
     const text = readFileSync(join(REPO, 'template/.claude', dir, file), 'utf8')
 
@@ -358,4 +359,127 @@ test('importing the module does not run an install', async () => {
 
   assert.ok(typeof module.mergeSettings === 'function')
   assert.ok(!existsSync(join(REPO, 'init')), 'importing the installer created a stray directory')
+})
+
+// ── The optional ui-ux-design skill ────────────────────────────────────────────
+//
+// Installed only where there is a UI to design. Its description triggers on any screen work, so in a CLI
+// it is a prompt loaded every session for nothing — and in a UI project, skipping it is a missing skill
+// nobody notices. Both halves are tested, on repos built by the real installer.
+
+const UI_SKILL = '.claude/skills/ui-ux-design/SKILL.md'
+const UI_CARD = '.claude/skills/ui-ux-design/references/project.md'
+
+test('a React app gets the ui-ux-design skill', () => {
+  const repo = fresh({ packageJson: { name: 'x', dependencies: { react: '^19.0.0' } } })
+
+  assert.ok(existsSync(repo.path(UI_SKILL)))
+  assert.ok(existsSync(repo.path(UI_CARD)))
+})
+
+test('a UI framework in devDependencies counts too', () => {
+  const repo = fresh({ packageJson: { name: 'x', devDependencies: { svelte: '^5.0.0' } } })
+
+  assert.ok(existsSync(repo.path(UI_SKILL)))
+})
+
+// The project this skill was written in: React lives in apps/web, and the root package.json has none.
+test('a pnpm monorepo with the UI in a workspace gets the skill', () => {
+  const repo = fresh({ packageJson: { name: 'mono', private: true } })
+
+  execFileSync('mkdir', ['-p', repo.path('apps/web'), repo.path('packages/shared')])
+  writeFileSync(repo.path('pnpm-workspace.yaml'), 'packages:\n  - "apps/*"\n  - "packages/*"\n')
+  writeFileSync(repo.path('apps/web/package.json'), JSON.stringify({ dependencies: { next: '15.0.0' } }))
+  writeFileSync(repo.path('packages/shared/package.json'), JSON.stringify({ dependencies: { zod: '3.0.0' } }))
+
+  assert.ok(!existsSync(repo.path(UI_SKILL)), 'precondition: the first install saw no workspace')
+
+  install(repo.root, '--no-probe')
+
+  assert.ok(existsSync(repo.path(UI_SKILL)))
+})
+
+test('npm workspaces are read as well', () => {
+  const repo = fresh({ packageJson: { name: 'mono', private: true, workspaces: ['site'] } })
+
+  execFileSync('mkdir', ['-p', repo.path('site')])
+  writeFileSync(repo.path('site/package.json'), JSON.stringify({ dependencies: { vue: '3.0.0' } }))
+  install(repo.root, '--no-probe')
+
+  assert.ok(existsSync(repo.path(UI_SKILL)))
+})
+
+test('a Node project with no UI framework does NOT get the skill', () => {
+  const repo = fresh({ packageJson: { name: 'cli', dependencies: { commander: '^12.0.0', reactor: '1.0.0' } } })
+
+  assert.ok(!existsSync(repo.path('.claude/skills/ui-ux-design')))
+  // ...and the other skills are unaffected by the skip.
+  assert.ok(existsSync(repo.path('.claude/skills/lean-code/SKILL.md')))
+})
+
+test('a repo with no package.json at all does NOT get the skill', () => {
+  const repo = fresh({ config: null })
+
+  assert.ok(!existsSync(repo.path('.claude/skills/ui-ux-design')))
+})
+
+test('the skip is reported, with the flag that overrides it', () => {
+  const repo = fresh({ packageJson: { name: 'cli' } })
+  const out = install(repo.root, '--dry-run')
+
+  assert.match(out, /skip\s+\.claude\/skills\/ui-ux-design\/.*--ui/)
+})
+
+test('--ui installs it where nothing was detected; --no-ui withholds it where something was', () => {
+  const forced = fresh({ config: null })
+
+  install(forced.root, '--no-probe', '--ui')
+  assert.ok(existsSync(forced.path(UI_SKILL)))
+
+  const withheld = fresh({ config: null })
+
+  writeFileSync(withheld.path('package.json'), JSON.stringify({ dependencies: { react: '19.0.0' } }))
+  install(withheld.root, '--no-probe', '--no-ui')
+  assert.ok(!existsSync(withheld.path('.claude/skills/ui-ux-design')))
+})
+
+// A tailored copy — the pedia-dental case — must not be topped up with the stock scaffold. Placeholder
+// text beside someone's real answers is worse than either alone, because the skill follows both.
+test('an existing ui-ux-design directory is kept WHOLE — nothing is added to it', () => {
+  const repo = fresh({ packageJson: { name: 'x', dependencies: { react: '19.0.0' } } })
+
+  execFileSync('rm', ['-rf', repo.path('.claude/skills/ui-ux-design')])
+  execFileSync('mkdir', ['-p', repo.path('.claude/skills/ui-ux-design')])
+  writeFileSync(repo.path(UI_SKILL), 'MY TAILORED DESIGN SKILL')
+
+  install(repo.root, '--force', '--no-probe')
+  install(repo.root, '--upgrade')
+
+  assert.equal(repo.read(UI_SKILL), 'MY TAILORED DESIGN SKILL')
+  assert.ok(!existsSync(repo.path(UI_CARD)), 'the stock project card was added beside a tailored skill')
+})
+
+// The point of the generic skill is that it carries no project in it. This is the regression that would
+// quietly undo that: one copied paragraph from the project it was extracted from.
+test('the shipped ui-ux-design skill names no project, stack path or domain', () => {
+  const dir = join(REPO, 'template/.claude/skills/ui-ux-design')
+  const files = ['SKILL.md', ...['project', 'heuristics-and-laws', 'visual-system', 'interaction-patterns', 'accessibility', 'audit-rubric', 'domain-risk'].map(name => `references/${name}.md`)]
+  const leak = /pnpm (dev|run)|apps\/web|globals\.css|form-field\.tsx|app-shell|formatPeso|₱|\bpeso\b|pedia|figtree|sonner|react-big-calendar|\bmsw\b|ComingSoon|patient|tooth|teeth|dental|dentist|clinic|chairside|allerg|guardian/i
+
+  for (const file of files) {
+    const text = readFileSync(join(dir, file), 'utf8')
+
+    assert.ok(!leak.test(text), `${file} mentions "${text.match(leak)?.[0]}"`)
+  }
+})
+
+test('the selftest warns while the design card is still the scaffold, and stops once it is filled', () => {
+  const repo = fresh({ packageJson: { name: 'x', dependencies: { react: '19.0.0' } } })
+  const selftest = () => spawnSync('node', ['.claude/harness/selftest.mjs'], { cwd: repo.root, encoding: 'utf8' }).stdout
+
+  assert.match(selftest(), /ui-ux-design\/references\/project\.md is still the scaffold/)
+
+  writeFileSync(repo.path(UI_CARD), '# Project\n\n## Users and contexts\n\nSupport agents, on calls.\n')
+
+  assert.doesNotMatch(selftest(), /ui-ux-design\/references\/project\.md/)
 })

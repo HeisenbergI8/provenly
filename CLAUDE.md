@@ -59,6 +59,10 @@ so there is no second copy to drift.
 - **Agents, skills and `CONVENTIONS.md` are never overwritten in a target repo**, not even with
   `--force`. Those are prompts the user has tuned; silently restoring the stock version is invisible
   damage.
+- **`ui-ux-design` is the one optional skill**, installed only when a UI framework appears in
+  `package.json` or a declared workspace (`--ui` / `--no-ui` override). It is kept or installed as a
+  whole directory, unlike the other skills, which are topped up file by file — so a tailored copy is
+  never given the stock `project.md` scaffold beside it.
 - **Not every gate exports `decide()`** — nine of them do. A new blocking gate should.
 
 ## Tests

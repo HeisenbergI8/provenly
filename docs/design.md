@@ -361,3 +361,5 @@ compatible states.
 | Classify against the raw command string | every "MENTION is not evidence" case |
 | Rename a ledger field in the writer only | most of `reader-writer.test.mjs` |
 | `basename` → `endsWith` in `agent-locks.mjs` | 7 lock cases — `guard-agent-locks.mjs` ends with `agent-locks.mjs`, so the guard runs the library's CLI on import and exits before reading its payload |
+| Read only the root `package.json` for UI detection | "a pnpm monorepo with the UI in a workspace", "npm workspaces are read as well" — the UI usually lives in `apps/web`, not the root |
+| Top up `ui-ux-design` file by file like the other skills | "an existing ui-ux-design directory is kept WHOLE" — a tailored copy gets the stock `project.md` scaffold beside it |

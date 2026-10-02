@@ -260,6 +260,17 @@ if (existsSync(conventionsPath)) {
   warnings.push('agents are installed but there is no CONVENTIONS.md — they will plan without project knowledge')
 }
 
+// The ui-ux-design skill's project card, for the same reason and with the same sentinel. Absent is
+// fine: the skill is optional, and a tailored copy may not have the card at all.
+const designCardPath = join(root, '.claude/skills/ui-ux-design/references/project.md')
+
+if (existsSync(designCardPath) && readFileSync(designCardPath, 'utf8').includes('harness:scaffold')) {
+  warnings.push(
+    'ui-ux-design/references/project.md is still the scaffold — the skill reads it for who the users are ' +
+      'and what a mistake costs. Fill in what is true, delete what you cannot, and remove the marker.'
+  )
+}
+
 // ── 8. Memory ──────────────────────────────────────────────────────────────────
 
 if (config.lessons?.enabled !== false) {

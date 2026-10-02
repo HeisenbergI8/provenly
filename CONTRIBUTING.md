@@ -72,9 +72,18 @@ before `verify`, `test:e2e` before `test`. Adding an ecosystem means adding a pa
 
 ## Scope
 
-This is the evidence layer: the ledger and the gates that read it. Agents, skills, planning pipelines and
-task loops are deliberately out of scope — they are opinions about how to work, and they do not
-generalise across projects the way a record of what ran does.
+The core is the evidence layer: the ledger and the gates that read it. The agents and skills ship beside
+it as opinionated starting points — they are opinions about how to work, so they are installed once and
+never overwritten, and the gates never depend on them.
+
+A new skill earns its place only if it generalises:
+
+- **It names no project.** Paths, libraries, formatters and domain vocabulary stay out of the shipped
+  text; `init.test.mjs` has a leak test for `ui-ux-design` that a new skill should copy.
+- **Project facts live in a card the user fills in** — `CONVENTIONS.md`, or a scaffold inside the skill
+  carrying the `harness:scaffold` marker, with a selftest warning while it is unfilled.
+- **It is installed only where it applies.** A skill that is useless in some projects is detected in or
+  out by the installer, with a flag to override, and tested in both directions.
 
 Proposals that make the harness *more* portable, or that close a way for a gate to be silently inert, are
 the most welcome kind.

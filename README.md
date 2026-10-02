@@ -71,6 +71,11 @@ already there. Running it twice changes nothing, and **agents, skills and `CONVE
 overwritten** — not even with `--force`. Those are prompts you will have tuned, and silently restoring
 the stock version is invisible damage.
 
+One skill is **optional**: `ui-ux-design` is installed only when the project has a user interface — a
+UI framework (React, Vue, Svelte, Angular, Next, Astro and the like) in `package.json` or in any
+declared workspace. A CLI or a library never sees it. The installer says which way it went, and `--ui`
+or `--no-ui` overrides the detection.
+
 <details>
 <summary>Installing without <code>npx</code>, and the non-interactive flags</summary>
 
@@ -81,7 +86,8 @@ node provenly/bin/harness-init.mjs /path/to/your/repo
 
 In a script or CI there is no terminal to prompt on, so it takes the detected values silently. `--yes`
 forces that anywhere, `--no-probe` skips running the commands, `--dry-run` prints every change without
-making one, and `--upgrade` refreshes the scripts while leaving config and settings alone. An existing
+making one, and `--upgrade` refreshes the scripts while leaving config and settings alone. `--ui` and
+`--no-ui` force the design skill in or out. An existing
 `harness.config.json` is never re-prompted for; those values are yours.
 
 </details>
@@ -112,6 +118,11 @@ plausible-sounding advice.
 **Delete any section you cannot fill honestly.** A half-filled scaffold is worse than no file at all,
 because the agents follow whatever it says. The selftest keeps warning until you remove the marker
 line at the top, which is your cue that this step is still outstanding.
+
+**If you have a UI,** the design skill has a card of its own to fill in the same way:
+`.claude/skills/ui-ux-design/references/project.md` — who your users are, what a mistake costs, and
+where your tokens and components live. The rest of the skill is general design expertise; the card is
+the only part that knows your product.
 
 ### Updating
 
@@ -200,6 +211,7 @@ the gates are installed.
 | `git-committer` | Commits matching the convention already in your log |
 | `ticket-writer` | Turn a finding into something trackable |
 | `build` | Start or steer a supervised task-loop run |
+| `ui-ux-design` | Audit and redesign screens like a senior product designer — heuristics, WCAG 2.2 AA, high-stakes UI. Installed only where a UI is detected |
 
 **Plan pipeline and task loop** — `verify-plan` runs each plan step's check and grades the checks
 themselves; `next-phase` tracks the cursor; `task-driver` blocks `Stop` with the next phase, so code

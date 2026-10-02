@@ -9,6 +9,7 @@
 //   node bin/harness-init.mjs --force          also overwrite an existing harness.config.json
 //   node bin/harness-init.mjs --no-probe       skip running the detected commands to check they work
 //   node bin/harness-init.mjs --yes            accept every detected value; never prompt
+//   node bin/harness-init.mjs --ui | --no-ui   force the ui-ux-design skill in or out (default: detected)
 //
 // ── TWO RULES THIS FILE OBEYS ──────────────────────────────────────────────────
 //
@@ -170,6 +171,64 @@ const DETECTORS = [
     }
   }
 ]
+
+// ── Does this project have a user interface? ───────────────────────────────────
+//
+// Decides whether the ui-ux-design skill is installed. Its description triggers on any screen work, so
+// in a CLI or a library it is a prompt loaded every session for nothing. Positive evidence only: a
+// dependency on a UI framework in the root package.json or in a declared workspace. Anything else —
+// a Rust GUI, a Flutter app, plain HTML — is what `--ui` is for.
+const UI_PACKAGES = [
+  'react', 'react-dom', 'react-native', 'preact', 'vue', 'svelte', 'solid-js', 'lit', '@angular/core',
+  'next', 'nuxt', 'astro', '@remix-run/react', '@sveltejs/kit', 'expo', 'electron'
+]
+
+// Workspace globs are read, not guessed: `dir/*` lists that directory, anything else is taken as a
+// literal path. A monorepo usually keeps its UI out of the root package.json — React lives in
+// apps/web, and a root-only check would skip the one project this skill was written in.
+const workspaceDirs = root => {
+  const pkg = readJson(join(root, 'package.json'))
+  const declared = Array.isArray(pkg?.workspaces) ? pkg.workspaces : (pkg?.workspaces?.packages ?? [])
+
+  let pnpm = []
+
+  try {
+    pnpm = [...readFileSync(join(root, 'pnpm-workspace.yaml'), 'utf8').matchAll(/^\s*-\s*['"]?([^'"#\s]+)/gm)].map(m => m[1])
+  } catch {
+    /* no pnpm workspace */
+  }
+
+  const dirs = []
+
+  for (const pattern of [...declared, ...pnpm]) {
+    if (typeof pattern !== 'string' || pattern.startsWith('!')) continue
+
+    const parent = pattern.replace(/\/\*{1,2}$/, '')
+
+    if (parent === pattern) {
+      dirs.push(join(root, pattern))
+      continue
+    }
+
+    try {
+      for (const entry of readdirSync(join(root, parent), { withFileTypes: true })) {
+        if (entry.isDirectory()) dirs.push(join(root, parent, entry.name))
+      }
+    } catch {
+      /* a declared glob with nothing behind it yet */
+    }
+  }
+
+  return dirs
+}
+
+export const hasUserInterface = root =>
+  [root, ...workspaceDirs(root)].some(dir => {
+    const pkg = readJson(join(dir, 'package.json'))
+    const deps = { ...pkg?.dependencies, ...pkg?.devDependencies, ...pkg?.peerDependencies }
+
+    return UI_PACKAGES.some(name => name in deps)
+  })
 
 const detect = root => {
   for (const detector of DETECTORS) {
@@ -415,11 +474,37 @@ const main = async () => {
   // NEVER OVERWRITTEN, even on --upgrade. These are prompts, and a project that has been running for a
   // month has almost certainly tuned them — silently replacing a tuned agent with the stock one is the
   // most damaging thing this installer could do, because the damage is invisible until behaviour drifts.
-  for (const [source, destination] of [
-    [join(TEMPLATE, '.claude/agents'), join(target, '.claude/agents')],
-    [join(TEMPLATE, '.claude/skills'), join(target, '.claude/skills')]
-  ]) {
-    copyTreeIfAbsent(source, destination, target)
+  copyTreeIfAbsent(join(TEMPLATE, '.claude/agents'), join(target, '.claude/agents'), target)
+
+  // ui-ux-design is the one OPTIONAL skill: installed only where there is a UI to design. It is also
+  // kept or installed as a WHOLE. Every other skill is topped up file by file, but this one carries a
+  // project.md scaffold — adding it beside a skill someone already tailored would put placeholder text
+  // next to their real answers, and the skill follows whatever it reads.
+  const uiSkill = join(target, '.claude/skills/ui-ux-design')
+  const wantUi = flags.has('--ui') || (!flags.has('--no-ui') && hasUserInterface(target))
+  let uiInstalled = false
+
+  for (const entry of readdirSync(join(TEMPLATE, '.claude/skills'), { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+
+    const from = join(TEMPLATE, '.claude/skills', entry.name)
+    const to = join(target, '.claude/skills', entry.name)
+
+    if (entry.name === 'ui-ux-design') {
+      if (existsSync(uiSkill)) {
+        record('keep', '.claude/skills/ui-ux-design/  (yours)')
+        continue
+      }
+
+      if (!wantUi) {
+        record('skip', '.claude/skills/ui-ux-design/  (no UI detected — pass --ui to install it)')
+        continue
+      }
+
+      uiInstalled = true
+    }
+
+    copyTreeIfAbsent(from, to, target)
   }
 
   if (upgrade) {
@@ -569,7 +654,16 @@ const main = async () => {
   log(`  ${confirmed ? 3 : 4}. Fill in CONVENTIONS.md when you have ten minutes — four short sections.`)
   log('     Delete any you cannot fill honestly; a half-filled scaffold is worse than none, because')
   log('     the agents follow whatever it says.')
-  log(`  ${confirmed ? 4 : 5}. Commit harness.config.json and CONVENTIONS.md. They define what "verified" and`)
+
+  let step = confirmed ? 4 : 5
+
+  if (uiInstalled) {
+    log(`  ${step++}. A UI was detected, so the ui-ux-design skill is installed. Fill in its project card,`)
+    log('     .claude/skills/ui-ux-design/references/project.md — who your users are and what a mistake')
+    log('     costs. It is the only part of the skill that knows your product.')
+  }
+
+  log(`  ${step}. Commit harness.config.json and CONVENTIONS.md. They define what "verified" and`)
   log('     "correct" mean here, so they belong in a diff.')
 }
 
