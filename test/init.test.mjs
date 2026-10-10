@@ -133,6 +133,7 @@ test('a fresh install lands the agents, skills and the conventions scaffold', ()
     '.claude/skills/implement-plan/SKILL.md',
     '.claude/skills/debug-ladder/SKILL.md',
     '.claude/skills/lesson-keeper/SKILL.md',
+    '.claude/skills/grill-me/SKILL.md',
     'CONVENTIONS.md'
   ]) {
     assert.ok(existsSync(repo.path(file)), `missing ${file}`)
@@ -171,6 +172,8 @@ test('every shipped agent and skill has the frontmatter that makes it loadable',
     ['skills/build', 'SKILL.md'],
     ['skills/git-committer', 'SKILL.md'],
     ['skills/ticket-writer', 'SKILL.md'],
+    ['skills/grill-me', 'SKILL.md'],
+    ['skills/wait-what', 'SKILL.md'],
     ['skills/ui-ux-design', 'SKILL.md']
   ]) {
     const text = readFileSync(join(REPO, 'template/.claude', dir, file), 'utf8')

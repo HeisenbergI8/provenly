@@ -203,6 +203,8 @@ the gates are installed.
 
 | Skill | What it is for |
 | --- | --- |
+| `grill-me` | Interview you round by round until every decision is settled, then write `decisions.md` for the architect |
+| `wait-what` | Re-pitch the last message in plain English, in the project's own terms. Typed only |
 | `implement-plan` | Execute a plan phase by phase, with a verification gate between phases |
 | `debug-ladder` | Escape a repeated failure: an attempt budget, a written ledger, escalation to you |
 | `lean-code` | Search for what exists before adding anything; resist premature abstraction |
@@ -630,6 +632,9 @@ comments are from that system; the reasoning is what carried over. Nothing proje
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+The `grill-me` and `wait-what` skills and the auditor's smell baseline are adapted from
+[mattpocock/skills](https://github.com/mattpocock/skills), MIT License, Copyright (c) 2026 Matt Pocock.
 
 *Not affiliated with or endorsed by Anthropic. "Claude" and "Claude Code" are trademarks of
 Anthropic, PBC, used here only to describe what this tool works with.*
